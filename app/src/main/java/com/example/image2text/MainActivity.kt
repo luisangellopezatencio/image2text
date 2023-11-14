@@ -54,14 +54,29 @@ import com.example.image2text.ui.theme.Image2textTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberPermissionState
 import android.Manifest
+import android.content.ClipData
+import android.content.Context
+import android.content.Intent
+import android.text.style.BackgroundColorSpan
 import android.view.ViewGroup
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.core.content.ContextCompat.startActivity
+import androidx.lifecycle.LifecycleOwner
 import com.google.accompanist.permissions.isGranted
-
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import java.io.IOException
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,6 +88,10 @@ class MainActivity : ComponentActivity() {
                     var imageUri by remember {
                         mutableStateOf<Uri?>(null)
                     }
+                    val context = LocalContext.current
+                    val cameraController = remember {
+                        LifecycleCameraController(context)
+                    }
 
 
                     
@@ -82,8 +101,8 @@ class MainActivity : ComponentActivity() {
                             .fillMaxHeight()
                     ) {
                         Header()
-                        CameraCompose(imageUri)
-                        Footer(imageUri, setImageUri = {newUri -> imageUri = newUri})
+                        CameraCompose(imageUri, cameraController)
+                        Main(imageUri, setImageUri = {newUri -> imageUri = newUri}, cameraController)
                     }
                 }
             }
@@ -151,16 +170,23 @@ fun Header() {
     }
 
 @Composable
-fun Footer(imageUri: Uri?, setImageUri:(Uri?)->Unit){
+fun Main(imageUri: Uri?, setImageUri:(Uri?)->Unit, cameraController: LifecycleCameraController){
+    val scrollState = rememberScrollState()
+    var textRec by remember {
+        mutableStateOf("The extracted text will be shown here...")
+    }
+    val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
 
     val context = LocalContext.current
+    val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
     val bitmap = remember {
         mutableStateOf<Bitmap?>(null)
     }
+
     val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()){
             uri: Uri? -> if (uri != null) {
-        setImageUri(uri)
+                    setImageUri(uri)
     }
     }
     Column (
@@ -185,10 +211,59 @@ fun Footer(imageUri: Uri?, setImageUri:(Uri?)->Unit){
                         modifier = Modifier
                             .size(400.dp)
                             .padding(20.dp))
-                    IconButton(onClick = { setImageUri(null) }) {
-                        Icon(Icons.Filled.Close, contentDescription = "Icon to close")
+                    Row (
+                        horizontalArrangement = Arrangement.SpaceAround
+                    ){
+                        IconButton(onClick = { setImageUri(null); textRec = "" }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Icon to close")
+                        }
+                        Button(onClick = {
+                            val image: InputImage
+                            try {
+                                image = InputImage.fromFilePath(context, imageUri)
+                                val result = recognizer.process(image)
+                                //Añadir un escuchador a la tarea
+                                result.addOnSuccessListener { visionText ->
+                                    textRec = visionText.text
+                                }
+                            } catch (e: IOException) {
+                                e.printStackTrace()
+                            }
+                        }) {
+                            Text(text = "Extract text")
+                        }
+                       IconButton(onClick = {
+                           val clipData = ClipData.newPlainText("text", textRec)
+                           clipboardManager.setPrimaryClip(clipData)
+                       }) {
+                           Icon(painter = painterResource(id = R.drawable.copy), contentDescription = "Icon Copy", tint = MaterialTheme.colorScheme.primary)
+                       }
+                        IconButton(onClick = {
+                            // Crea un intent de acción SEND
+                            val intent = Intent(Intent.ACTION_SEND)
+                            // Establece el tipo de datos a texto plano
+                            intent.type = "text/plain"
+                            // Agrega el texto como extra
+                            intent.putExtra(Intent.EXTRA_TEXT, textRec)
+                            // Inicia la actividad con el intent
+                            context.startActivity(intent)
+                        }) {
+                           Icon(painter = painterResource(id = R.drawable.share), contentDescription ="Icon Share", tint = MaterialTheme.colorScheme.primary )
+                        }
                     }
-                }
+                    Box(modifier = Modifier
+                        .background(Color.LightGray) // Puedes cambiar el color de fondo
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .verticalScroll(scrollState) // Aplica el modificador de desplazamiento
+                        .padding(30.dp),
+
+                    ){
+                        Text(
+                            text = textRec
+                        )
+
+                }}
 
             }
         }
@@ -203,7 +278,20 @@ fun Footer(imageUri: Uri?, setImageUri:(Uri?)->Unit){
             IconButton(onClick = { launcher.launch("image/*") }) {
                 Icon(painter = painterResource(id = R.drawable.image_picker_icon), contentDescription = "Icon Picker", tint = MaterialTheme.colorScheme.primary)
             }
-            IconButton(onClick = { /*TODO*/ }) {
+            IconButton(onClick = {   //Take
+                val file = createTempFile("imagen_", ".jpg")
+                val outputDirectoy = ImageCapture.OutputFileOptions.Builder(file).build()
+                val executor = ContextCompat.getMainExecutor(context)
+                cameraController.takePicture(outputDirectoy, executor, object : ImageCapture.OnImageSavedCallback{
+                    override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                        setImageUri(outputFileResults.savedUri)
+                    }
+
+                    override fun onError(exception: ImageCaptureException) {
+                        println()
+                    }
+                })
+            }) {
                 Icon(painter = painterResource(id = R.drawable.camera), contentDescription = "Icon camera", tint = MaterialTheme.colorScheme.primary)
             }
         }
@@ -212,16 +300,14 @@ fun Footer(imageUri: Uri?, setImageUri:(Uri?)->Unit){
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun CameraCompose(imageUri: Uri?) {
+fun CameraCompose(imageUri: Uri?, cameraController: LifecycleCameraController) {
     val permissionState = rememberPermissionState(permission = Manifest.permission.CAMERA)
     LaunchedEffect(Unit){
         permissionState.launchPermissionRequest()
     }
     if (permissionState.status.isGranted){
-        val context = LocalContext.current
-        val cameraController = remember {
-            LifecycleCameraController(context)
-        }
+
+
         val lifecycle = LocalLifecycleOwner.current
         cameraController.bindToLifecycle(lifecycle)
         if (imageUri == null){
@@ -238,7 +324,9 @@ fun CameraCompose(imageUri: Uri?) {
 
                 PrevieView
             },
-                modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9F)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.9F)
             )
 
         }
@@ -251,6 +339,8 @@ fun CameraCompose(imageUri: Uri?) {
 
 
 }
+
+
 
 @Preview(showBackground = true)
 @Composable

@@ -62,6 +62,8 @@ dependencies {
 
     implementation("com.google.accompanist:accompanist-permissions:0.31.1-alpha")
 
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
+
     implementation("androidx.core:core-ktx:1.9.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
     implementation("androidx.activity:activity-compose:1.7.0")
