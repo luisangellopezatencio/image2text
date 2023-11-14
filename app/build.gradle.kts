@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -48,6 +49,7 @@ android {
 
 dependencies {
 
+    implementation("com.google.android.gms:play-services-ads:22.4.0")
     // CameraX core library using the camera2 implementation
     val camerax_version = "1.3.0-alpha04"
     // The following line is optional, as the core library is included indirectly by camera-camera2

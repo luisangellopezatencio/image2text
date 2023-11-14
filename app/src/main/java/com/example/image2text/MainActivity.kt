@@ -54,6 +54,7 @@ import com.example.image2text.ui.theme.Image2textTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberPermissionState
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
@@ -63,8 +64,11 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -73,18 +77,43 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.startActivity
 import androidx.lifecycle.LifecycleOwner
 import com.google.accompanist.permissions.isGranted
+import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.google.android.gms.ads.AdView;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import java.io.IOException
 class MainActivity : ComponentActivity() {
-    @OptIn(ExperimentalPermissionsApi::class)
+    var mInterstitialAd: InterstitialAd?=null
+
+
+    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+    @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
+            val adRequest = AdRequest.Builder().build()
+
+            InterstitialAd.load(this, "ca-app-pub-3940256099942544/1033173712", adRequest, object : InterstitialAdLoadCallback() {
+                override fun onAdFailedToLoad(p0: LoadAdError) {
+                    mInterstitialAd = null
+                }
+
+                override fun onAdLoaded(p0: InterstitialAd) {
+                    mInterstitialAd = p0
+                    mInterstitialAd?.show(this@MainActivity)
+                }
+            })
+
             Image2textTheme {
                 // A surface container using the 'background' color from the theme
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+
+
                     var imageUri by remember {
                         mutableStateOf<Uri?>(null)
                     }
