@@ -72,6 +72,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.startActivity
@@ -162,35 +163,8 @@ fun Header() {
             Text(
                 text = "image2text",
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(top=10.dp)
+                textAlign = TextAlign.Left
             )
-            Spacer(modifier = Modifier.width(80.dp))
-            Box(
-                modifier = Modifier.wrapContentSize()
-            ) {
-                Button(onClick = { expanded = !expanded }) {
-                    Text(text = "Select language")
-                }
-                DropdownMenu(
-                    expanded = expanded,
-                    //Cambiar el estado al cerrar el menu
-                    onDismissRequest = { expanded = false })
-                {
-                    //Para cada elemento de la lista crea un menu Item
-                    languages.forEach{
-                            option ->
-                        DropdownMenuItem(
-                            text = { Text(text = option) },
-                            //Al seleccionar una opcion cambia el estado del lenguaje seleccionado
-                            //y cierra el menu
-                            onClick = {
-                                selectedLanguage = option
-                                expanded = false
-                                println(selectedLanguage)
-                            })
-                    }
-                }
-            }
 
         }
 
@@ -363,9 +337,6 @@ fun CameraCompose(imageUri: Uri?, cameraController: LifecycleCameraController) {
     }else{
         Text(text = "Permiso denegado" )
     }
-
-
-
 
 }
 
